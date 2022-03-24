@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Backup files from Emacs undo-tree
+*.~undo-tree~
+
+# Corpus data
+/data/corpus
