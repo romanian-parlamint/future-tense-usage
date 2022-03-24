@@ -173,10 +173,10 @@ def parse_arguments():
     )
     parser.add_argument('--verbs-file',
                         help="Path to the CSV file containing verbs.",
-                        default="./data/dex-entries.csv")
+                        default="../data/dex-entries.csv")
     parser.add_argument('--output-file',
                         help="Path to the output file.",
-                        default='./data/verb-forms.csv')
+                        default='../data/verb-forms.csv')
     parser.add_argument(
         '-l',
         '--log-level',
