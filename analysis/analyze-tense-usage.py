@@ -164,15 +164,12 @@ def iterate_corpus_files(root_file):
         The generator of corpus files.
     """
     root_file_path = Path(root_file)
-    count = 0
+
     for file_path in root_file_path.parent.glob('*.xml'):
         if file_path == root_file_path:
             continue
         if '.ana' in file_path.suffixes:
             continue
-        count += 1
-        if count == 4:
-            break
 
         file_name = str(file_path)
         logging.info("Extracting statistics from %s.", file_name)
