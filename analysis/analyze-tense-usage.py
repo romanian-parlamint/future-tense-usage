@@ -275,7 +275,7 @@ def parse_arguments():
     per_session.add_argument(
         '--statistics-file',
         help="The path of the output CSV file containing statistics.",
-        default='../data/future-usage-stats.csv')
+        default='../data/future-usage-per-speaker.csv')
 
     per_form = subparsers.add_parser(
         'per-form', help="Count future tense usage per verb form.")
