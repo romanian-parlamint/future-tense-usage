@@ -138,6 +138,7 @@ def plot_top_speakers(args):
                     title="Top {} speakers using future forms".format(args.N),
                     xlabel="Spearker name",
                     ylabel="Count of future forms used",
+                    legend=False,
                     alpha=0.75,
                     rot=90).get_figure()
     fig.tight_layout()
