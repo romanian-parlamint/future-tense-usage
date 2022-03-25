@@ -71,6 +71,58 @@ def get_xml_root(file_path):
     return xml_tree.getroot()
 
 
+def get_session_date(xml_root):
+    """Retrieve session date from the root node of the XML tree.
+
+    Parameters
+    ----------
+    xml_root: etree.Element, required
+        The root node of the XML tree representing the session.
+
+    Returns
+    -------
+    date: datetime.date
+        The date of the sesssion.
+    """
+    date_elem, *_ = [
+        elem for elem in xml_root.iterdescendants()
+        if 'date' in elem.tag and 'setting' in elem.getparent().tag
+    ]
+    date = datetime.strptime(date_elem.get('when'), '%Y-%m-%d').date()
+    return date
+
+
+def get_form_statistics(forms, file_name):
+    """Get statistics on form usage.
+
+    Parameters
+    ----------
+    forms: iterable of str, required
+        The forms for which to count statistics.
+    file_name: str, required
+        The corpus file from which to count statistics.
+
+    Returns
+    -------
+    stats: dict of ((str, date, str), int)
+        Verb form usage statistics with the structure
+        ((speaker, date, verb form), count).
+    """
+    xml = get_xml_root(file_name)
+    date = get_session_date(xml)
+    stats = {}
+    for u in xml.iterdescendants('{http://www.tei-c.org/ns/1.0}u'):
+        speaker = u.get('who')
+        text = ''.join(u.itertext())
+        for f in forms:
+            acc = text.count(f)
+            key = (speaker, date, f)
+            if key in stats:
+                acc = acc + stats[key]
+            stats[key] = acc
+    return {k: v for k, v in stats.items() if v > 0}
+
+
 def get_usage_statistics(forms, file_name):
     """Get usage statistics.
 
@@ -87,11 +139,7 @@ def get_usage_statistics(forms, file_name):
         The date and the statistics for that date.
     """
     xml = get_xml_root(file_name)
-    date_elem, *_ = [
-        elem for elem in xml.iterdescendants()
-        if 'date' in elem.tag and 'setting' in elem.getparent().tag
-    ]
-    date = datetime.strptime(date_elem.get('when'), '%Y-%m-%d').date()
+    date = get_session_date(xml)
     stats = {}
     for u in xml.iterdescendants('{http://www.tei-c.org/ns/1.0}u'):
         speaker = u.get('who')
@@ -116,18 +164,22 @@ def iterate_corpus_files(root_file):
         The generator of corpus files.
     """
     root_file_path = Path(root_file)
+    count = 0
     for file_path in root_file_path.parent.glob('*.xml'):
         if file_path == root_file_path:
             continue
         if '.ana' in file_path.suffixes:
             continue
+        count += 1
+        if count == 4:
+            break
 
         file_name = str(file_path)
         logging.info("Extracting statistics from %s.", file_name)
         yield file_name
 
 
-def main(args):
+def count_usage_per_session(args):
     """Where the magic happens."""
     logging.info("Loading verb forms.")
     df = pandas.read_csv(args.verb_forms_file)
@@ -137,7 +189,7 @@ def main(args):
 
     logging.info("Computing statistics.")
 
-    data = Parallel(n_jobs=-1)(
+    data = Parallel(n_jobs=args.num_jobs)(
         delayed(get_usage_statistics)(future_forms, f)
         for f in iterate_corpus_files(args.corpus_root_file))
 
@@ -165,30 +217,82 @@ def main(args):
     df_stats.to_csv(output_file)
 
 
+def count_usage_per_verb_form(args):
+    """Count future tense usage per verb form."""
+    logging.info("Loading verb forms.")
+    df = pandas.read_csv(args.verb_forms_file)
+
+    logging.info("Extracting future forms.")
+    future_forms = get_future_forms(df)
+
+    logging.info("Computing statistics.")
+
+    data = Parallel(n_jobs=args.num_jobs)(
+        delayed(get_form_statistics)(future_forms, f)
+        for f in iterate_corpus_files(args.corpus_root_file))
+
+    logging.info("Aggregating statistics.")
+    result = {'Speaker': [], 'Date': [], 'Form': [], 'Count': []}
+
+    for session_stats in data:
+        for key, value in session_stats.items():
+            speaker, date, form = key
+            result['Speaker'].append(speaker)
+            result['Date'].append(date)
+            result['Form'].append(form)
+            result['Count'].append(value)
+    df_stats = pandas.DataFrame(result)
+    output_file = args.statistics_file
+    logging.info("Saving statistics to %s.", output_file)
+    df_stats.to_csv(output_file)
+
+
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = ArgumentParser(description='')
-    parser.add_argument('--corpus-root-file',
-                        help="The path of the ParlaMint corpus root file.",
-                        default='../data/corpus/ParlaMint-RO.xml')
-    parser.add_argument('--verb-forms-file',
-                        help="The path of the CSV file containing verb forms.",
-                        default='../data/verb-forms.csv')
-    parser.add_argument(
-        '--statistics-file',
-        help="The path of the output CSV file containing statistics.",
-        default='../data/future-usage-stats.csv')
-    parser.add_argument(
+    root_parser = ArgumentParser(description='')
+    root_parser.add_argument(
+        '--corpus-root-file',
+        help="The path of the ParlaMint corpus root file.",
+        default='../data/corpus/ParlaMint-RO.xml')
+    root_parser.add_argument(
+        '--verb-forms-file',
+        help="The path of the CSV file containing verb forms.",
+        default='../data/verb-forms.csv')
+    root_parser.add_argument(
+        '--num-jobs',
+        help="The maximum number of concurrently running jobs.",
+        type=int,
+        default=-2)
+    root_parser.add_argument(
         '-l',
         '--log-level',
         help="The level of details to print when running.",
         choices=['debug', 'info', 'warning', 'error', 'critical'],
         default='info')
-    return parser.parse_args()
+
+    subparsers = root_parser.add_subparsers()
+
+    per_session = subparsers.add_parser(
+        'per-session', help="Count future tense usage per session.")
+    per_session.set_defaults(func=count_usage_per_session)
+    per_session.add_argument(
+        '--statistics-file',
+        help="The path of the output CSV file containing statistics.",
+        default='../data/future-usage-stats.csv')
+
+    per_form = subparsers.add_parser(
+        'per-form', help="Count future tense usage per verb form.")
+    per_form.set_defaults(func=count_usage_per_verb_form)
+    per_form.add_argument(
+        '--statistics-file',
+        help="The path of the output CSV file containing statistics.",
+        default='../data/future-usage-per-form.csv')
+
+    return root_parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parse_arguments()
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s',
                         level=getattr(logging, args.log_level.upper()))
-    main(args)
+    args.func(args)
