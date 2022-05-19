@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 import pandas as pd
 from pathlib import Path
 import re
+import matplotlib.pyplot as plt
 
 # Cele mai frecvente verbe
 # top 10 cei mai promițători
@@ -96,7 +97,6 @@ def find_name(speaker_id, names):
         Speaker name if found; otherwise None.
     """
     name_parts = get_name_parts(speaker_id)
-    print(name_parts)
     for name, parts in names.items():
         if name_parts == parts:
             return name
@@ -117,33 +117,62 @@ def plot_most_frequent_forms(args):
     print(aggregated)
 
 
+def aggregate_data_for_top_speakers(stats, n, name_parts):
+    """Aggregate the statistics to get top n speakers.
+
+    Parameters
+    ----------
+    stats: pandas.DataFrame, required
+        The dataframe containing statistics.
+    n: int, required
+        Number of speakers to return.
+    name_parts: dict, required
+        The mapping between id and name parts.
+
+    Returns
+    -------
+    aggregated_data: pandas.DataFrame
+        The aggregated data for top n speakers.
+    """
+    aggregated_stats = {'Speaker': [], 'UsageCount': [], 'FutureUsage': []}
+    for speaker, data in stats.groupby(stats.Speaker):
+        speaker_name = find_name(speaker, name_parts)
+        if not speaker_name:
+            speaker_name = speaker.replace('#', '').replace('-', ' ')
+        aggregated_stats['Speaker'].append(speaker_name)
+        aggregated_stats['UsageCount'].append(data.UsageCount.sum())
+        percentage = (data.UsageCount.sum() / data.NumWords.sum()) * 100
+        aggregated_stats['FutureUsage'].append(percentage)
+    aggregated = pd.DataFrame(aggregated_stats).sort_values(by='UsageCount',
+                                                            ascending=False)
+    aggregated.to_csv('aggregated-data.csv')
+    aggregated = aggregated.head(n)
+    return aggregated
+
+
 def plot_top_speakers(args):
     """Create plot of top speakers."""
-    name_parts, affiliations = load_legislature_data(args.legislatures)
+    name_parts, _ = load_legislature_data(args.legislatures)
     stats = pd.read_csv(args.statistics_file)
-    grouped = stats.groupby(stats.Speaker)
-    aggregated = grouped['UsageCount'].sum().sort_values(ascending=False)
-    aggregated = aggregated.head(args.N).to_frame()
-    speakers, usage_counts = [], []
-    for speaker_id, row in aggregated.iterrows():
-        speaker_name = find_name(speaker_id, name_parts)
-        speakers.append(
-            speaker_name if speaker_name is not None else speaker_id)
-        usage_counts.append(row['UsageCount'])
+    data = aggregate_data_for_top_speakers(stats, args.N, name_parts)
+    fig, ax = plt.subplots()
+    future_usage = [x * 1000 for x in data.FutureUsage]
+    ax.bar(list(data.Speaker),
+           future_usage,
+           label='Percentage (scaled by 1000) of future usage')
 
-    data = pd.DataFrame({'Speakers': speakers, 'UsageCount': usage_counts})
-    data.set_index('Speakers', inplace=True)
+    ax.bar(list(data.Speaker),
+           list(data.UsageCount),
+           bottom=future_usage,
+           label='Count of future forms used')
+    ax.set_ylabel("Usage of future forms")
+    ax.set_xlabel("Speaker")
+    ax.set_title("Top {} speakers using future forms".format(args.N))
+    ax.legend()
+    plt.xticks(rotation=45)
 
-    fig = data.plot(kind='bar',
-                    title="Top {} speakers using future forms".format(args.N),
-                    xlabel="Spearker name",
-                    ylabel="Count of future forms used",
-                    legend=False,
-                    alpha=0.75,
-                    rot=90).get_figure()
     fig.tight_layout()
     fig.savefig(args.output_file)
-    print(data)
     if args.save_plot_data:
         data.to_csv(args.plot_data_file)
 
@@ -189,7 +218,7 @@ def parse_arguments():
     top_speakers.add_argument(
         '--statistics-file',
         help="Path of the file containing usage statistics.",
-        default='../data/future-usage-stats.csv')
+        default='../data/future-usage-per-speaker.csv')
     top_speakers.add_argument('--output-file',
                               help="Path of the output file",
                               default="../plots/top-speakers.png")
