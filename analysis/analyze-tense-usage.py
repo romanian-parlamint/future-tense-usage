@@ -8,6 +8,7 @@ import re
 from lxml import etree
 from datetime import datetime
 from pathlib import Path
+from gensim.utils import tokenize as split_words
 from itertools import product
 from joblib import Parallel, delayed
 
@@ -33,7 +34,7 @@ def get_future_forms(df):
     return [x.strip() for x in future_forms]
 
 
-def get_ininitive_forms(df):
+def get_infinitive_forms(df):
     """Get the list of verbs in the infinitive form from the dataframe.
 
     Parameters
@@ -144,9 +145,12 @@ def get_usage_statistics(forms, file_name):
     for u in xml.iterdescendants('{http://www.tei-c.org/ns/1.0}u'):
         speaker = u.get('who')
         text = ''.join(u.itertext())
-        acc = stats[speaker] if speaker in stats else 0
-        acc += sum([text.count(form) for form in forms])
-        stats[speaker] = acc
+        future_usage, num_utterances, num_words = stats[
+            speaker] if speaker in stats else (0, 0, 0)
+        future_usage += sum([text.count(form) for form in forms])
+        num_utterances = num_utterances + 1
+        num_words = num_words + len(list(split_words(text)))
+        stats[speaker] = (future_usage, num_utterances, num_words)
     return date, stats
 
 
@@ -200,14 +204,22 @@ def count_usage_per_session(args):
         for speaker in stats.keys():
             speakers.add(speaker)
 
-    result = {'Speaker': [], 'Date': [], 'UsageCount': []}
+    result = {
+        'Speaker': [],
+        'Date': [],
+        'UsageCount': [],
+        'NumUtterances': [],
+        'NumWords': []
+    }
     for speaker, date in product(speakers, dates):
         result['Speaker'].append(speaker)
         result['Date'].append(date)
         session_stats = global_stats[date]
-        usage_count = session_stats[
-            speaker] if speaker in session_stats else None
+        usage_count, num_utterances, num_words = session_stats[
+            speaker] if speaker in session_stats else (None, None, None)
         result['UsageCount'].append(usage_count)
+        result['NumUtterances'].append(num_utterances)
+        result['NumWords'].append(num_words)
     df_stats = pandas.DataFrame(result)
     output_file = args.statistics_file
     logging.info("Saving statistics to %s.", output_file)
