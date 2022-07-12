@@ -4,7 +4,7 @@
 
 This repository contains the source code which accompanies the paper `ParlaMint-RO: Chamber of the Eternal Future` submitted at [LREC 2022 ParlaMint workshop](https://www.clarin.eu/ParlaCLARIN-III).
 
-A [PDF version](http://www.lrec-conf.org/proceedings/lrec2022/workshops/ParlaCLARINIII/pdf/2022.parlaclariniii-1.19.pdf "PDF file of the paper") of our paper is available for download on [LREC website](https://lrec-conf.org "LREC conference website"); alternatively you can download the [full workshop proceedings as PDF](http://www.lrec-conf.org/proceedings/lrec2022/workshops/ParlaCLARINIII/2022.parlaclariniii-1.0.pdf "PDF of ParlaCLARIN workshop proceedings").
+A [PDF version](http://www.lrec-conf.org/proceedings/lrec2022/workshops/ParlaCLARINIII/pdf/2022.parlaclariniii-1.19.pdf "PDF file of the paper") of our paper is available for download on [LREC website](https://lrec-conf.org "LREC conference website"); alternatively you can download the [PDF version](http://www.lrec-conf.org/proceedings/lrec2022/workshops/ParlaCLARINIII/2022.parlaclariniii-1.0.pdf "PDF of ParlaCLARIN workshop proceedings") of the [workshop proceedings](http://www.lrec-conf.org/proceedings/lrec2022/workshops/ParlaCLARINIII/program.html "ParlaCLARIN workshop proceedings").
 
 ## Abstract ##
 
