@@ -12,6 +12,6 @@ matplotlib==3.5.1
 packaging==21.3
 Pillow==9.0.1
 pyparsing==3.0.7
-joblib==1.1.0
+joblib==1.2.0
 scipy==1.8.1
 gensim==4.2.0
