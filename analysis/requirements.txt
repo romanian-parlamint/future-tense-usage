@@ -13,5 +13,5 @@ packaging==21.3
 Pillow==9.3.0
 pyparsing==3.0.7
 joblib==1.2.0
-scipy==1.8.1
+scipy==1.10.0
 gensim==4.2.0
